@@ -72,9 +72,12 @@ public class HBaseLazyObjectFactory {
             .createValueObjectInspector(columnTypes.get(i)));
       }
     }
-    List<String> structFieldComments = tbl.getProperty("columns.comments") == null ?
-        new ArrayList<String>(Collections.nCopies(columnTypes.size(), ""))
-        : Arrays.asList(tbl.getProperty("columns.comments").split("\0", columnTypes.size()));
+//    List<String> structFieldComments = tbl.getProperty("columns.comments") == null ?
+//        new ArrayList<String>(Collections.nCopies(columnTypes.size(), ""))
+//        : Arrays.asList(tbl.getProperty("columns.comments").split("\0", columnTypes.size()));
+
+    List<String> structFieldComments =
+        new ArrayList<String>(Collections.nCopies(columnTypes.size(), ""));
 
     return LazyObjectInspectorFactory.getLazySimpleStructObjectInspector(
         hSerdeParams.getColumnNames(), columnObjectInspectors, structFieldComments,

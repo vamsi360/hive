@@ -206,8 +206,15 @@ class SchemaToTypeInfo {
       case ARRAY:  return generateArrayTypeInfo(schema, seenSchemas);
       case UNION:  return generateUnionTypeInfo(schema, seenSchemas);
       case ENUM:   return generateEnumTypeInfo(schema);
+      case PARAM:  return generateParamTypeInfo(schema, seenSchemas);
       default:     throw new AvroSerdeException("Do not yet support: " + schema);
     }
+  }
+
+  private static TypeInfo generateParamTypeInfo(Schema schema, Set<Schema> seenSchemas)
+      throws AvroSerdeException {
+    assert schema.getType().equals(Schema.Type.PARAM);
+    return generateRecordTypeInfo(schema.getValueType(), seenSchemas);
   }
 
   private static TypeInfo generateRecordTypeInfo(Schema schema,

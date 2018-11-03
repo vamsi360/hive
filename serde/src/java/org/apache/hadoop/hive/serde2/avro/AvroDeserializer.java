@@ -34,6 +34,8 @@ import org.apache.avro.Schema;
 import org.apache.avro.Schema.Type;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericData.Fixed;
+import org.apache.avro.generic.GenericData.Param;
+import org.apache.avro.generic.GenericData.Record;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
@@ -42,6 +44,7 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.UnresolvedUnionException;
+import org.apache.avro.reflect.ReflectData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.hive.common.type.HiveChar;
@@ -117,7 +120,7 @@ class AvroDeserializer {
   }
 
   private List<Object> row;
-
+  
   /**
    * Deserialize an Avro record, recursing into its component fields and
    * deserializing them as well.  Fields of the record are matched by name
@@ -207,7 +210,13 @@ class AvroDeserializer {
 
     switch(columnType.getCategory()) {
     case STRUCT:
-      return deserializeStruct((GenericData.Record) datum, fileSchema, (StructTypeInfo) columnType);
+      if(datum instanceof GenericData.Param) {
+        GenericData.Record record = (GenericData.Record) ((GenericData.Param) datum).getRecord();
+        return deserializeStruct(record, fileSchema.getValueType(), (StructTypeInfo) columnType);
+      } else {
+        GenericData.Record record = (GenericData.Record) datum;
+        return deserializeStruct(record, fileSchema, (StructTypeInfo) columnType);
+      }
     case UNION:
       return deserializeUnion(datum, fileSchema, recordSchema, (UnionTypeInfo) columnType);
     case LIST:
@@ -325,7 +334,7 @@ class AvroDeserializer {
                                                     Schema fileSchema,
                                                     Schema recordSchema)
       throws AvroSerdeException {
-    int tag = GenericData.get().resolveUnion(recordSchema, datum); // Determine index of value
+    int tag = ReflectData.get().resolveUnion(recordSchema, datum); // Determine index of value
     Schema schema = recordSchema.getTypes().get(tag);
     if (schema.getType().equals(Type.NULL)) {
       return null;
@@ -337,7 +346,7 @@ class AvroDeserializer {
         // The fileSchema may have the null value in a different position, so
         // we need to get the correct tag
         try {
-          tag = GenericData.get().resolveUnion(fileSchema, datum);
+          tag = ReflectData.get().resolveUnion(fileSchema, datum);
           currentFileSchema = fileSchema.getTypes().get(tag);
         } catch (UnresolvedUnionException e) {
           if (LOG.isDebugEnabled()) {
@@ -379,8 +388,8 @@ class AvroDeserializer {
                                   UnionTypeInfo columnType) throws AvroSerdeException {
     // Calculate tags individually since the schema can evolve and can have different tags. In worst case, both schemas are same 
     // and we would end up doing calculations twice to get the same tag
-    int fsTag = GenericData.get().resolveUnion(fileSchema, datum); // Determine index of value from fileSchema
-    int rsTag = GenericData.get().resolveUnion(recordSchema, datum); // Determine index of value from recordSchema
+    int fsTag = ReflectData.get().resolveUnion(fileSchema, datum); // Determine index of value from fileSchema
+    int rsTag = ReflectData.get().resolveUnion(recordSchema, datum); // Determine index of value from recordSchema
     Object desered = worker(datum, fileSchema == null ? null : fileSchema.getTypes().get(fsTag),
         recordSchema.getTypes().get(rsTag), columnType.getAllUnionObjectTypeInfos().get(rsTag));
     return new StandardUnionObjectInspector.StandardUnion((byte)rsTag, desered);
