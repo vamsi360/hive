@@ -31,7 +31,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.avro.Schema;
+import org.apache.avro.Schema.Parser;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericData.EnumSymbol;
+import org.apache.avro.generic.GenericData.Param;
+import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.reflect.ReflectData;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StandardListObjectInspector;
@@ -44,7 +49,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.VoidObjectInspect
 import org.junit.Test;
 
 public class TestAvroDeserializer {
-  private final GenericData GENERIC_DATA = GenericData.get();
+  private final GenericData GENERIC_DATA = ReflectData.AllowNull.get();
 
   @Test
   public void canDeserializeVoidType() throws IOException, SerDeException {
@@ -125,6 +130,27 @@ public class TestAvroDeserializer {
     assertEquals(1l, theMap2.get("one"));
     assertEquals(2l, theMap2.get("two"));
     assertEquals(3l, theMap2.get("three"));
+  }
+
+  @Test
+  public void canDeserializeParamTypes() {
+    Schema rootSchema = new Schema.Parser().parse(
+      "[\"null\",{\"type\":\"param\",\"values\":{\"type\":\"record\",\"name\":\"PairMetricTypeLong\",\"namespace\":\"com.test.models.commons\",\"fields\":[{\"name\":\"key\",\"type\":{\"type\":\"enum\",\"name\":\"MetricType\",\"symbols\":[\"ABSOLUTE\",\"PERCENTAGE\",\"RELATIVE\"]}},{\"name\":\"value\",\"type\":\"long\"}],\"java-class\":\"com.test.models.commons.Pair\"}}]");
+
+    Schema rootParamSchema = new Schema.Parser().parse(
+      "{\"type\":\"param\",\"values\":{\"type\":\"record\",\"name\":\"PairMetricTypeLong\",\"namespace\":\"com.test.models.commons\",\"fields\":[{\"name\":\"key\",\"type\":{\"type\":\"enum\",\"name\":\"MetricType\",\"symbols\":[\"ABSOLUTE\",\"PERCENTAGE\",\"RELATIVE\"]}},{\"name\":\"value\",\"type\":\"long\"}],\"java-class\":\"com.test.models.commons.Pair\"}}");
+
+    Schema schema = new Parser().parse(
+      "{\"type\":\"record\",\"name\":\"PairMetricTypeLong\",\"namespace\":\"com.test.models.commons\",\"fields\":[{\"name\":\"key\",\"type\":{\"type\":\"enum\",\"name\":\"MetricType\",\"symbols\":[\"ABSOLUTE\",\"PERCENTAGE\",\"RELATIVE\"]}},{\"name\":\"value\",\"type\":\"long\"}],\"java-class\":\"com.test.models.commons.Pair\"}");
+    Record record = new Record(schema);
+
+    Schema enumSchema = new Parser().parse(
+      "{\"type\":\"enum\",\"name\":\"MetricType\",\"symbols\":[\"ABSOLUTE\",\"PERCENTAGE\",\"RELATIVE\"]}}");
+    record.put("key", new EnumSymbol(enumSchema, "ABSOLUTE"));
+    record.put("value", 135L);
+
+    Param param = new Param(rootParamSchema, record);
+    assertEquals(1, GENERIC_DATA.resolveUnion(rootSchema, param));
   }
 
   @Test
