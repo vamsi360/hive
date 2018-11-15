@@ -67,6 +67,14 @@ public abstract class InstanceCache<SeedObject, Instance> {
     return instance;
   }
 
+  public boolean contains(SeedObject seedObject) {
+    return cache.containsKey(seedObject);
+  }
+
+  public void put(SeedObject seedObject, Instance instance) {
+    cache.put(seedObject, instance);
+  }
+
   protected abstract Instance makeInstance(SeedObject hv,
       Set<SeedObject> seenSchemas) throws AvroSerdeException;
 }

@@ -263,6 +263,34 @@ public class TestAvroDeserializer {
   }
 
   @Test
+  public void canDeserializeRecursiveRecords() throws SerDeException, IOException {
+    Schema schema = AvroSerdeUtils.getSchemaFor(TestAvroObjectInspectorGenerator.RECURSIVE_RECORD_SCHEMA);
+
+    Record recRecord1 = new Record(schema);
+    recRecord1.put("child", null);
+    recRecord1.put("brand", "brand_Rec1");
+
+    GenericData.Record record = new GenericData.Record(schema);
+    record.put("child", recRecord1);
+    record.put("brand", "brand_root");
+
+    assertTrue(GENERIC_DATA.validate(schema, record));
+
+    AvroGenericRecordWritable garw = Utils.serializeAndDeserializeRecord(record, schema);
+    //canDeserializeRecordsInternal(schema, schema);
+
+    AvroObjectInspectorGenerator aoig = new AvroObjectInspectorGenerator(schema);
+
+    AvroDeserializer de = new AvroDeserializer();
+    ArrayList<Object> row =
+            (ArrayList<Object>)de.deserialize(aoig.getColumnNames(), aoig.getColumnTypes(), garw, schema);
+    assertEquals(1, row.size());
+    Object theRecordObject = row.get(0);
+    System.out.println("theRecordObject = " + theRecordObject.getClass().getCanonicalName());
+
+  }
+
+  @Test
   public void canDeserializeNullableRecords() throws SerDeException, IOException {
     Schema s = AvroSerdeUtils.getSchemaFor(TestAvroObjectInspectorGenerator.RECORD_SCHEMA);
     Schema fileSchema = AvroSerdeUtils.getSchemaFor(TestAvroObjectInspectorGenerator.NULLABLE_RECORD_SCHEMA);

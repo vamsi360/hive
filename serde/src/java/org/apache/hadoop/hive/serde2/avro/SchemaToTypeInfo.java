@@ -36,7 +36,10 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.avro.Schema;
+import org.apache.avro.Schema.Field;
+import org.apache.avro.Schema.Type;
 import org.apache.hadoop.hive.serde2.typeinfo.HiveDecimalUtils;
+import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
 
@@ -223,23 +226,62 @@ class SchemaToTypeInfo {
 
     if (seenSchemas == null) {
         seenSchemas = Collections.newSetFromMap(new IdentityHashMap<Schema, Boolean>());
-    } else if (seenSchemas.contains(schema)) {
-      throw new AvroSerdeException(
-          "Recursive schemas are not supported. Recursive schema was " + schema
-              .getFullName());
+    } else if (seenSchemas.contains(schema)) {// && !typeInfoCache.contains(schema)) {
+//      throw new AvroSerdeException(
+//          "Recursive schemas are not supported. Recursive schema was " + schema
+//              .getFullName());
+
+
+      return getTypeInfo(schema, seenSchemas);
+      //return typeInfoCache.retrieve(schema);
+//      TypeInfo typeInfo = getTypeInfo(schema, seenSchemas);
+//      typeInfoCache.put(schema, typeInfo);
+//      return typeInfo;
     }
     seenSchemas.add(schema);
+    return getTypeInfo(schema, seenSchemas);
+  }
 
-    List<Schema.Field> fields = schema.getFields();
+  private static TypeInfo getTypeInfo(Schema schema, Set<Schema> seenSchemas)
+      throws AvroSerdeException {
+    List<Field> fields = schema.getFields();
     List<String> fieldNames = new ArrayList<String>(fields.size());
     List<TypeInfo> typeInfos = new ArrayList<TypeInfo>(fields.size());
+    List<Field> recursiveFields = new ArrayList<>();
+    int k=0;
 
     for(int i = 0; i < fields.size(); i++) {
-      fieldNames.add(i, fields.get(i).name());
-      typeInfos.add(i, generateTypeInfo(fields.get(i).schema(), seenSchemas));
+      Field field = fields.get(i);
+      Schema fieldSchema = field.schema();
+
+      if(AvroSerdeUtils.isNullableType(fieldSchema) &&
+          schema.equals(AvroSerdeUtils.getOtherTypeFromNullableType(fieldSchema))) {
+          recursiveFields.add(field);
+      } else {
+        fieldNames.add(k, field.name());
+        TypeInfo typeInfo = generateTypeInfo(fieldSchema, seenSchemas);
+        typeInfos.add(k, typeInfo);
+        k++;
+      }
     }
 
-    return TypeInfoFactory.getStructTypeInfo(fieldNames, typeInfos);
+    StructTypeInfo structTypeInfo = (StructTypeInfo) TypeInfoFactory.
+        getStructTypeInfo(fieldNames, typeInfos);
+
+    if(recursiveFields.size() > 0) {
+      ArrayList<String> allStructFieldNames = structTypeInfo.getAllStructFieldNames();
+      ArrayList<TypeInfo> allStructFieldTypeInfos = structTypeInfo.getAllStructFieldTypeInfos();
+
+      for (Field field : recursiveFields) {
+        allStructFieldNames.add(field.name());
+        allStructFieldTypeInfos.add(structTypeInfo);
+      }
+
+      structTypeInfo.setAllStructFieldNames(allStructFieldNames);
+      structTypeInfo.setAllStructFieldTypeInfos(allStructFieldTypeInfos);
+      structTypeInfo.setRecursiveTypeName(schema.getFullName());
+    }
+    return structTypeInfo;
   }
 
   /**
