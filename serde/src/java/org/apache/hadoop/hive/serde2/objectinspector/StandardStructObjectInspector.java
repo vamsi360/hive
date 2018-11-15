@@ -42,7 +42,7 @@ public class StandardStructObjectInspector extends
   public static final Logger LOG = LoggerFactory
       .getLogger(StandardStructObjectInspector.class.getName());
 
-  protected static class MyField implements StructField {
+  public static class MyField implements StructField {
     protected int fieldID;
     protected String fieldName;
     protected ObjectInspector fieldObjectInspector;

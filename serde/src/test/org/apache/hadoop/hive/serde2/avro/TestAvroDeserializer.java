@@ -270,8 +270,12 @@ public class TestAvroDeserializer {
     recRecord1.put("child", null);
     recRecord1.put("brand", "brand_Rec1");
 
+    Record recRecord2 = new Record(schema);
+    recRecord2.put("child", recRecord1);
+    recRecord2.put("brand", "brand_Rec2");
+
     GenericData.Record record = new GenericData.Record(schema);
-    record.put("child", recRecord1);
+    record.put("child", recRecord2);
     record.put("brand", "brand_root");
 
     assertTrue(GENERIC_DATA.validate(schema, record));
@@ -284,10 +288,9 @@ public class TestAvroDeserializer {
     AvroDeserializer de = new AvroDeserializer();
     ArrayList<Object> row =
             (ArrayList<Object>)de.deserialize(aoig.getColumnNames(), aoig.getColumnTypes(), garw, schema);
-    assertEquals(1, row.size());
+    assertEquals(2, row.size());
     Object theRecordObject = row.get(0);
     System.out.println("theRecordObject = " + theRecordObject.getClass().getCanonicalName());
-
   }
 
   @Test
