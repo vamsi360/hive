@@ -42,6 +42,7 @@ import org.apache.hadoop.hive.serde2.typeinfo.HiveDecimalUtils;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory;
+import org.apache.hadoop.hive.serde2.typeinfo.UnionTypeInfo;
 
 /**
  * Convert an Avro Schema to a Hive TypeInfo
@@ -312,13 +313,46 @@ class SchemaToTypeInfo {
     List<Schema> types = schema.getTypes();
 
 
+    //List<TypeInfo> typeInfos = new ArrayList<TypeInfo>(types.size());
     List<TypeInfo> typeInfos = new ArrayList<TypeInfo>(types.size());
+    List<Schema> recursiveType = new ArrayList<>();
 
     for(Schema type : types) {
-      typeInfos.add(generateTypeInfo(type, seenSchemas));
+      if(seenSchemas != null && seenSchemas.contains(type)) {
+        recursiveType.add(type);
+      } else {
+        typeInfos.add(generateTypeInfo(type, seenSchemas));
+      }
     }
 
-    return TypeInfoFactory.getUnionTypeInfo(typeInfos);
+    UnionTypeInfo unionTypeInfo = (UnionTypeInfo) TypeInfoFactory.getUnionTypeInfo(typeInfos);
+
+    if(recursiveType.size() > 0) {
+      List<TypeInfo> allUnionObjectTypeInfos = unionTypeInfo.getAllUnionObjectTypeInfos();
+
+      ArrayList<TypeInfo> newTypeInfos = new ArrayList<>(allUnionObjectTypeInfos);
+      for(Schema type: recursiveType) {
+        newTypeInfos.add(unionTypeInfo);
+      }
+
+      UnionTypeInfo unionTypeInfo2 = (UnionTypeInfo) TypeInfoFactory.getUnionTypeInfo(newTypeInfos);
+
+      //this is required as we want to set the fully constructed recursive schema as schema for the
+      // recursive subtype.
+      // TODO: Need to work on an elegant solution for this
+      ArrayList<TypeInfo> newTypeInfos2 = new ArrayList<>(newTypeInfos);
+      for(TypeInfo typeInfo: newTypeInfos) {
+        if(typeInfo.equals(unionTypeInfo)) {
+          newTypeInfos2.add(unionTypeInfo2);
+        } else {
+          newTypeInfos2.add(typeInfo);
+        }
+      }
+
+      return TypeInfoFactory.getUnionTypeInfo(newTypeInfos2);
+    }
+
+    return unionTypeInfo;
   }
 
   // Hive doesn't have an Enum type, so we're going to treat them as Strings.

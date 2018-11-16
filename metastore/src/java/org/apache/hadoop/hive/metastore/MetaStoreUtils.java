@@ -660,7 +660,7 @@ public class MetaStoreUtils {
       TypeInfoUtils.getTypeInfoFromTypeString(newType));
   }
 
-  public static final int MAX_MS_TYPENAME_LENGTH = 50000; // 4000/2, for an unlikely unicode case
+  public static final int MAX_MS_TYPENAME_LENGTH = 1000000; // 4000/2, for an unlikely unicode case
 
   public static final String TYPE_FROM_DESERIALIZER = "<derived from deserializer>";
   /**
